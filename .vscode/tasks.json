@@ -1,21 +1,30 @@
 {
-    // See https://go.microsoft.com/fwlink/?LinkId=733558
-    // for the documentation about the tasks.json format
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "build main",
+            "label": "build",
             "type": "shell",
-            "command": "g++",
+            "command": "/usr/bin/g++",
             "args": [
+                "-Wall",
                 "-o",
-                "main",
-                "main.cpp"
+                "build/main.out",
+                "main.cpp",
+                "rpc-server.cpp",
+                "logger.cpp",
+                "-lpthread",
+                "-g"
             ],
             "group": {
                 "kind": "build",
                 "isDefault": true
-            }
-        }
+            },
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
     ]
 }

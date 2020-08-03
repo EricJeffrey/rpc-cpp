@@ -38,7 +38,7 @@ RPC服务端使用传统的`bind+listen+accept`方式等待客户端的请求。
 
 ### 通信数据格式
 
-`4 4 json` 适用于请求和响应。
+`4 4 json` 适用于请求和响应。`reqID`与`bodyLength`都是无符号整数。
 
 - 请求:
   ```

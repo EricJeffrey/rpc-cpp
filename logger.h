@@ -1,5 +1,5 @@
-#if !defined(LOGGER)
-#define LOGGER
+#if !defined(LOGGER_H)
+#define LOGGER_H
 
 #include <initializer_list>
 #include <cstring>
@@ -16,14 +16,9 @@ using std::make_shared;
 using std::shared_ptr;
 using std::string;
 
-string curTime() {
-    time_t t = time(NULL);
-    struct tm ttm = *localtime(&t);
-    char buf[22] = {};
-    snprintf(buf, 22, "%d-%02d-%02d %02d:%02d:%02d\n", ttm.tm_year + 1900, ttm.tm_mon + 1,
-             ttm.tm_mday, ttm.tm_hour, ttm.tm_min, ttm.tm_sec);
-    return string(buf);
-}
+string curTime();
+
+#define CUR_TIME (curTime())
 
 enum LoggerLevel {
     NONE = -1,
@@ -38,7 +33,7 @@ class Logger {
 private:
     static shared_ptr<Logger> logInstancePtr;
     LoggerLevel logLevel;
-    Logger(){};
+    Logger() { logLevel = ALL; };
 
 public:
     ~Logger() {}
@@ -54,7 +49,7 @@ public:
 
     void info(initializer_list<string> list) {
         if (logLevel >= DEBUG_INFO) {
-            cerr << curTime << " INFO ";
+            cerr << CUR_TIME << " INFO ";
             for (auto &&s : list)
                 cerr << s << ", ";
             cerr << endl;
@@ -63,7 +58,7 @@ public:
 
     void debug(initializer_list<string> list) {
         if (logLevel >= DEBUG_INFO) {
-            cerr << curTime << " DEBUG ";
+            cerr << CUR_TIME << " DEBUG ";
             for (auto &&s : list)
                 cerr << s << ", ";
             cerr << endl;
@@ -72,7 +67,7 @@ public:
 
     void warn(initializer_list<string> list) {
         if (logLevel >= WARN_DEBUG_INFO) {
-            cerr << curTime << " WARN ";
+            cerr << CUR_TIME << " WARN ";
             for (auto &&s : list)
                 cerr << s << ", ";
             cerr << endl;
@@ -81,7 +76,7 @@ public:
 
     void error(initializer_list<string> list) {
         if (logLevel >= ERROR_WARN_DEBUG_INFO) {
-            cerr << curTime << " ERROR ";
+            cerr << CUR_TIME << " ERROR ";
             for (auto &&s : list)
                 cerr << s << " ";
             cerr << endl;
@@ -89,7 +84,6 @@ public:
     }
 };
 
-shared_ptr<Logger> Logger::logInstancePtr = nullptr;
+shared_ptr<Logger> loggerInstance();
 
-auto loggerInstance() { return Logger::getInstance(); }
-#endif // LOGGER
+#endif // LOGGER_H
