@@ -25,13 +25,21 @@ using std::vector;
 
 namespace jeff_rpc {
 
-const static int HEADER_SZ = 8;
+const static ssize_t HEADER_SZ = 8;
 
 struct RawRequest;
 class RPCServer;
 
 json parse2json(string req);
 string serialize2str(json resp);
+
+// read numToRead bytes from sd and store into buf
+// throw error when read return -1
+int readn(int sd, char *buf, ssize_t numToRead);
+
+// write numToRead bytes to sd from buf
+// throw error when write return -1
+int writen(int sd, char *buf, ssize_t numToWrite);
 
 } // namespace jeff_rpc
 
@@ -54,7 +62,7 @@ private:
     static shared_ptr<RPCServer> rpcServerInstance;
 
     bool registered(const string procName);
-    RawRequest readRequest(int sd) throw();
+    RawRequest readRequest(int sd);
     int sendResponse(int sd, int reqID, json respJson);
     json callProcedure(const string procName, json args);
     int serveClient(int sd);
@@ -62,13 +70,14 @@ private:
 
 public:
     static auto getInstance() {
-        if (!rpcServerInstance) rpcServerInstance = make_shared<RPCServer>(RPCServer());
+        if (!rpcServerInstance)
+            rpcServerInstance = make_shared<RPCServer>(RPCServer());
         return rpcServerInstance;
     }
     ~RPCServer() {}
 
     int registerProc(const string procName, ProcType proc);
-    int startServer();
+    int startServer(int);
 };
 
 #endif // RPC_SERVER_H

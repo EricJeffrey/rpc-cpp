@@ -4,16 +4,9 @@
         {
             "label": "build",
             "type": "shell",
-            "command": "/usr/bin/g++",
+            "command": "/usr/bin/make",
             "args": [
-                "-Wall",
-                "-o",
-                "build/main.out",
-                "main.cpp",
-                "rpc-server.cpp",
-                "logger.cpp",
-                "-lpthread",
-                "-g"
+                "main"
             ],
             "group": {
                 "kind": "build",
