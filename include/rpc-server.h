@@ -12,7 +12,7 @@
 #include <unordered_map>
 #include <functional>
 
-#include "lib/json.hpp"
+#include "json.hpp"
 #include "logger.h"
 
 using nlohmann::json;
@@ -29,17 +29,7 @@ const static ssize_t HEADER_SZ = 8;
 
 struct RawRequest;
 class RPCServer;
-
-json parse2json(string req);
-string serialize2str(json resp);
-
-// read numToRead bytes from sd and store into buf
-// throw error when read return -1
-int readn(int sd, char *buf, ssize_t numToRead);
-
-// write numToRead bytes to sd from buf
-// throw error when write return -1
-int writen(int sd, char *buf, ssize_t numToWrite);
+enum RegisterRet { SUCCESS, PROC_EXIST };
 
 } // namespace jeff_rpc
 
@@ -63,7 +53,7 @@ private:
 
     bool registered(const string procName);
     RawRequest readRequest(int sd);
-    int sendResponse(int sd, int reqID, json respJson);
+    int sendResponse(int sd, int reqID, const string &respStr);
     json callProcedure(const string procName, json args);
     int serveClient(int sd);
     RPCServer() {}
@@ -76,7 +66,7 @@ public:
     }
     ~RPCServer() {}
 
-    int registerProc(const string procName, ProcType proc);
+    RegisterRet registerProc(const string procName, ProcType proc);
     int startServer(int);
 };
 

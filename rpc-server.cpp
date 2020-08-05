@@ -1,53 +1,18 @@
 #if !defined(RPC_SERVER_CPP)
 #define RPC_SERVER_CPP
 
+#include <sstream>
+#include <memory>
+#include "utils.h"
 #include "rpc-server.h"
 
 using std::copy;
+using std::make_unique;
+using std::ostringstream;
 using std::to_string;
+using std::unique_ptr;
 
 namespace jeff_rpc {
-
-int writen(int sd, char *buf, ssize_t numToWrite) {
-    ssize_t byteNumWrite = 0, ret;
-    while (byteNumWrite < numToWrite) {
-        ret = write(sd, buf + byteNumWrite, numToWrite - byteNumWrite);
-        const int tmpErrno = errno;
-        if (ret == -1) {
-            loggerInstance()->error({"write failed", strerror(tmpErrno)});
-            throw runtime_error("write failed");
-        } else {
-            if (tmpErrno == EINTR)
-                loggerInstance()->debug({"write interrputed by signal"});
-            byteNumWrite += ret;
-        }
-    }
-    return 0;
-}
-int readn(int sd, char *buf, ssize_t numToRead) {
-    ssize_t byteNumRead = 0, ret;
-    while (byteNumRead < numToRead) {
-        ret = read(sd, buf + byteNumRead, numToRead - byteNumRead);
-        const int tmpErrno = errno;
-        if (ret == -1) {
-            loggerInstance()->error({"read failed", strerror(tmpErrno)});
-            throw runtime_error("read failed");
-        } else if (ret > 0) {
-            if (tmpErrno == EINTR)
-                loggerInstance()->debug({"read interrupted by signal"});
-            byteNumRead += ret;
-        }
-    }
-    return 0;
-}
-json parse2json(string s) {
-    loggerInstance()->debug({"parsing s:|", s, "|to json: "});
-    return json::parse(s);
-}
-string serialize2str(json j) {
-    loggerInstance()->debug({"stringify json to str"});
-    return j.dump();
-}
 
 int RPCServer::startServer(int port) {
     int ret = 0;
@@ -104,15 +69,14 @@ int RPCServer::startServer(int port) {
     throw runtime_error("call to accept failed");
 }
 
-// todo return value -> already registered (enum + struct?)
-int RPCServer::registerProc(const string name, ProcType proc) {
+RegisterRet RPCServer::registerProc(const string name, ProcType proc) {
     if (registered(name)) {
         loggerInstance()->error({"proc:", name, "already registered"});
-        return -1;
+        return RegisterRet::PROC_EXIST;
     }
     registeredProcMap[name] = proc;
     loggerInstance()->debug({"registered proc:", name});
-    return 0;
+    return RegisterRet::SUCCESS;
 }
 
 bool RPCServer::registered(const string procName) {
@@ -132,10 +96,9 @@ RawRequest RPCServer::readRequest(int sd) {
             bodyLen <<= 8, bodyLen += headerBuf[i + 4];
         }
         loggerInstance()->debug({"reading request body"});
-        char *bodyBuf = new char[bodyLen + 1];
-        readn(sd, bodyBuf, bodyLen);
-        RawRequest req(reqID, bodyLen, string(bodyBuf, bodyLen));
-        delete[] bodyBuf;
+        unique_ptr<char[]> bodyBufPtr = make_unique<char[]>(bodyLen + 1);
+        readn(sd, bodyBufPtr.get(), bodyLen);
+        RawRequest req(reqID, bodyLen, string(bodyBufPtr.get(), bodyLen));
         vector<char> s;
         return req;
     } catch (...) {
@@ -144,20 +107,18 @@ RawRequest RPCServer::readRequest(int sd) {
     return RawRequest();
 }
 
-int RPCServer::sendResponse(int sd, int reqID, json respJson) {
+int RPCServer::sendResponse(int sd, int reqID, const string &respStr) {
     loggerInstance()->debug({"serializing response"});
-    string respStr = serialize2str(respJson);
     const ssize_t bodyLen = respStr.size();
-    char *respBuffer = new char[HEADER_SZ + bodyLen];
+    unique_ptr<char[]> respBufferPtr = make_unique<char[]>(HEADER_SZ + bodyLen);
     for (uint32_t i = 0, t = 0xff; i < 4; i++, t <<= 8) {
-        respBuffer[i] = (reqID & t) >> (8 * i);
-        respBuffer[i + 4] = (bodyLen & t) >> (8 * i);
+        respBufferPtr[i] = (reqID & t) >> (8 * i);
+        respBufferPtr[i + 4] = (bodyLen & t) >> (8 * i);
     }
-    copy(respStr.begin(), respStr.end(), respBuffer + HEADER_SZ);
+    copy(respStr.begin(), respStr.end(), respBufferPtr.get() + HEADER_SZ);
     try {
         loggerInstance()->debug({"sending response"});
-        writen(sd, respBuffer, HEADER_SZ + bodyLen);
-        delete[] respBuffer;
+        writen(sd, respBufferPtr.get(), HEADER_SZ + bodyLen);
         return 0;
     } catch (...) {
         throw;
@@ -171,6 +132,26 @@ json RPCServer::callProcedure(const string procName, json args) {
 }
 
 int RPCServer::serveClient(int sd) {
+
+    auto wrapResp = [](int code, json resp = "{}"_json) -> string {
+        string msg;
+        switch (code) {
+            case 200:
+                msg = "OK";
+                break;
+            case 404:
+                msg = "NOT FOUND";
+                break;
+            case 500:
+                msg = "INTERNAL ERROR";
+                break;
+            default:
+                msg = "ERROR";
+        }
+        ostringstream ss;
+        ss << "{code:" << code << ",msg:" << msg << ",ret:" << resp.dump() << "}";
+        return ss.str();
+    };
     RawRequest req;
     try {
         req = readRequest(sd);
@@ -179,24 +160,23 @@ int RPCServer::serveClient(int sd) {
         loggerInstance()->info({"request body parsed to json"});
         if (!reqBody.contains("name") || !registered(reqBody["name"])) {
             loggerInstance()->info({"requested proc not found, sending 404"});
-            sendResponse(sd, req.reqID, "{code: 404, msg: \"NOT FOUND\", ret: {}}"_json);
+            sendResponse(sd, req.reqID, wrapResp(404));
         } else {
             loggerInstance()->info({"calling requested proc"});
             json args;
             if (reqBody.contains("args"))
                 args = reqBody["args"];
             json retJson = callProcedure(reqBody["name"], args);
-            loggerInstance()->info(
-                {"requested proc returned with:", retJson.dump(), "sending back"});
-            sendResponse(sd, req.reqID, retJson);
+            loggerInstance()->debug({"requested proc returned, sending back"});
+            sendResponse(sd, req.reqID, wrapResp(200, retJson));
         }
     } catch (const std::exception &e) {
         loggerInstance()->error({"serve client failed", e.what()});
-        sendResponse(sd, req.reqID, "{code: 500, msg:\"INTERNAL ERROR\", ret: {}}"_json);
+        sendResponse(sd, req.reqID, wrapResp(500));
         return 0;
     } catch (...) {
         loggerInstance()->error({"serve client failed"});
-        sendResponse(sd, req.reqID, "{code: 500, msg:\"INTERNAL ERROR\", ret: {}}"_json);
+        sendResponse(sd, req.reqID, wrapResp(500));
     }
     return 0;
 }

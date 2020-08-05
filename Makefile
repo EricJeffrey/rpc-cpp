@@ -1,17 +1,24 @@
-VPATH = build
-objects = main.o logger.o rpc-server.o
-cmd = g++ -g -Wall
+OUT = build/main.out
+CC = g++
+ODIR = build
+SDIR = ./
+FLAGS = -Iinclude -Ilib -g
 
-main: $(objects)
-	$(cmd) -o build/main.out build/*.o -lpthread
+_OBJS = main.o rpc-server.o logger.o utils.o
 
-main.o:
-	$(cmd) -c -o build/main.o main.cpp
-logger.o:
-	$(cmd) -c -o build/logger.o logger.cpp
-rpc-server.o:
-	$(cmd) -c -o build/rpc-server.o rpc-server.cpp
+OBJS = $(patsubst %,$(ODIR)/%,$(_OBJS))
+
+.PHONY : clean, server, client
+
+server: $(OUT)
+
+$(ODIR)/%.o: $(SDIR)/%.cpp
+	$(CC) -c $(FLAGS) -o $@ $< $(CFLAGS) 
+
+$(OUT): $(OBJS) 
+	$(CC) -g -lpthread -o $(OUT) $(OBJS)
 
 .PHONY: clean
+
 clean:
-	rm build/*
+	rm -f $(ODIR)/*.o $(OUT)

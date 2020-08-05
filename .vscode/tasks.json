@@ -6,7 +6,7 @@
             "type": "shell",
             "command": "/usr/bin/make",
             "args": [
-                "main"
+                "server"
             ],
             "group": {
                 "kind": "build",
@@ -19,5 +19,17 @@
                 "$gcc"
             ]
         },
+        {
+            "label": "clean",
+            "type": "shell",
+            "command": "/usr/bin/make",
+            "args": [
+                "clean"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": []
+        }
     ]
 }
