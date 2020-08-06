@@ -55,6 +55,18 @@
         "typeinfo": "cpp",
         "valarray": "cpp",
         "set": "cpp",
-        "sstream": "cpp"
-    }
+        "sstream": "cpp",
+        "bitset": "cpp",
+        "condition_variable": "cpp",
+        "regex": "cpp",
+        "fstream": "cpp",
+        "future": "cpp",
+        "iomanip": "cpp",
+        "mutex": "cpp",
+        "shared_mutex": "cpp",
+        "variant": "cpp"
+    },
+    "todo-tree.filtering.excludeGlobs": [
+        "**/lib/**"
+    ]
 }

@@ -3,12 +3,13 @@
 
 #include <sstream>
 #include <memory>
+#include <thread>
 #include "utils.h"
 #include "rpc-server.h"
 
 using std::copy;
-using std::make_unique;
 using std::ostringstream;
+using std::thread;
 using std::to_string;
 using std::unique_ptr;
 
@@ -96,7 +97,7 @@ RawRequest RPCServer::readRequest(int sd) {
             bodyLen <<= 8, bodyLen += headerBuf[i + 4];
         }
         loggerInstance()->debug({"reading request body"});
-        unique_ptr<char[]> bodyBufPtr = make_unique<char[]>(bodyLen + 1);
+        unique_ptr<char[]> bodyBufPtr(new char[bodyLen + 1]);
         readn(sd, bodyBufPtr.get(), bodyLen);
         RawRequest req(reqID, bodyLen, string(bodyBufPtr.get(), bodyLen));
         vector<char> s;
@@ -110,7 +111,7 @@ RawRequest RPCServer::readRequest(int sd) {
 int RPCServer::sendResponse(int sd, int reqID, const string &respStr) {
     loggerInstance()->debug({"serializing response"});
     const ssize_t bodyLen = respStr.size();
-    unique_ptr<char[]> respBufferPtr = make_unique<char[]>(HEADER_SZ + bodyLen);
+    unique_ptr<char[]> respBufferPtr(new char[HEADER_SZ + bodyLen]);
     for (uint32_t i = 0, t = 0xff; i < 4; i++, t <<= 8) {
         respBufferPtr[i] = (reqID & t) >> (8 * i);
         respBufferPtr[i + 4] = (bodyLen & t) >> (8 * i);
@@ -132,8 +133,7 @@ json RPCServer::callProcedure(const string procName, json args) {
 }
 
 int RPCServer::serveClient(int sd) {
-
-    auto wrapResp = [](int code, json resp = "{}"_json) -> string {
+    auto wrapResp = [](int code, const json &resp = "{}"_json) -> string {
         string msg;
         switch (code) {
             case 200:
@@ -154,29 +154,42 @@ int RPCServer::serveClient(int sd) {
     };
     RawRequest req;
     try {
-        req = readRequest(sd);
-        loggerInstance()->info({"request read:", req.toString()});
-        json reqBody = parse2json(req.body);
-        loggerInstance()->info({"request body parsed to json"});
-        if (!reqBody.contains("name") || !registered(reqBody["name"])) {
-            loggerInstance()->info({"requested proc not found, sending 404"});
-            sendResponse(sd, req.reqID, wrapResp(404));
-        } else {
-            loggerInstance()->info({"calling requested proc"});
-            json args;
-            if (reqBody.contains("args"))
-                args = reqBody["args"];
-            json retJson = callProcedure(reqBody["name"], args);
-            loggerInstance()->debug({"requested proc returned, sending back"});
-            sendResponse(sd, req.reqID, wrapResp(200, retJson));
+        int opt = 1;
+        if (setsockopt(sd, SOL_SOCKET, SO_KEEPALIVE, &opt, sizeof(opt)) == -1) {
+            loggerInstance()->error({"set socket option - keep alive failed", strerror(errno)});
+            throw SocketError("call setsockopt failed");
         }
+        while (true) {
+            req = readRequest(sd);
+            loggerInstance()->info({"request read:", req.toString()});
+            json reqBody = parse2json(req.body);
+            loggerInstance()->info({"request body parsed to json"});
+            if (!reqBody.contains("name") || !registered(reqBody["name"])) {
+                loggerInstance()->info({"requested proc not found, sending 404"});
+                sendResponse(sd, req.reqID, wrapResp(404));
+            } else {
+                loggerInstance()->info({"calling requested proc"});
+                json args;
+                if (reqBody.contains("args"))
+                    args = reqBody["args"];
+                json retJson = callProcedure(reqBody["name"], args);
+                loggerInstance()->debug({"requested proc returned, sending back"});
+                sendResponse(sd, req.reqID, wrapResp(200, retJson));
+            }
+        }
+    } catch (const SocketError &e) {
+        // socket(connection) is not valid anymore
+        loggerInstance()->error({"serve client failed", e.what()});
+        close(sd);
     } catch (const std::exception &e) {
         loggerInstance()->error({"serve client failed", e.what()});
-        sendResponse(sd, req.reqID, wrapResp(500));
+        try {
+            sendResponse(sd, req.reqID, wrapResp(500));
+        } catch (...) {
+            loggerInstance()->error({"send response 500 failed"});
+        }
+        close(sd);
         return 0;
-    } catch (...) {
-        loggerInstance()->error({"serve client failed"});
-        sendResponse(sd, req.reqID, wrapResp(500));
     }
     return 0;
 }

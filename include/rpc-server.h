@@ -1,7 +1,6 @@
 #if !defined(RPC_SERVER_H)
 #define RPC_SERVER_H
 
-#include <thread>
 #include <unistd.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
@@ -18,8 +17,6 @@
 using nlohmann::json;
 using std::function;
 using std::make_shared;
-using std::runtime_error;
-using std::thread;
 using std::unordered_map;
 using std::vector;
 
@@ -38,9 +35,8 @@ struct jeff_rpc::RawRequest {
     string body;
 
     RawRequest() {}
-    RawRequest(int rid, int blen, const string &bbuffer) {
-        reqID = rid, bodyLen = blen, body = bbuffer;
-    }
+    RawRequest(int rid, int blen, const string &bbuffer)
+        : reqID(rid), bodyLen(blen), body(bbuffer) {}
     string toString() { return std::to_string(reqID) + body; }
 };
 
@@ -59,7 +55,7 @@ private:
     RPCServer() {}
 
 public:
-    static auto getInstance() {
+    static shared_ptr<RPCServer> getInstance() {
         if (!rpcServerInstance)
             rpcServerInstance = make_shared<RPCServer>(RPCServer());
         return rpcServerInstance;

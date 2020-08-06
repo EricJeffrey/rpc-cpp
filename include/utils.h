@@ -13,6 +13,13 @@ using nlohmann::json;
 using std::runtime_error;
 using std::string;
 
+// error that current socket is not valid
+class SocketError : runtime_error {
+public:
+    explicit SocketError(const string &s) : runtime_error(s) {}
+    const char *what() const noexcept { return runtime_error::what(); }
+};
+
 json parse2json(string req);
 string serialize2str(json resp);
 

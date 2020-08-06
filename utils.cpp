@@ -10,7 +10,9 @@ int writen(int sd, char *buf, ssize_t numToWrite) {
         const int tmpErrno = errno;
         if (ret == -1) {
             loggerInstance()->error({"write failed", strerror(tmpErrno)});
-            throw runtime_error("write failed");
+            if (tmpErrno == EBADFD)
+                throw SocketError("call to write failed, EBADFD");
+            throw runtime_error("call to write failed");
         } else {
             if (tmpErrno == EINTR)
                 loggerInstance()->debug({"write interrputed by signal"});
@@ -26,7 +28,9 @@ int readn(int sd, char *buf, ssize_t numToRead) {
         const int tmpErrno = errno;
         if (ret == -1) {
             loggerInstance()->error({"read failed", strerror(tmpErrno)});
-            throw runtime_error("read failed");
+            if (tmpErrno == EBADFD)
+                throw SocketError("call to write failed, EBADFD");
+            throw runtime_error("call to read failed");
         } else if (ret > 0) {
             if (tmpErrno == EINTR)
                 loggerInstance()->debug({"read interrupted by signal"});
