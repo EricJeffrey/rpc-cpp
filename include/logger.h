@@ -31,18 +31,18 @@ enum LoggerLevel {
 
 class Logger {
 private:
-    static shared_ptr<Logger> logInstancePtr;
     LoggerLevel logLevel;
+
     Logger() { logLevel = ALL; };
 
 public:
     ~Logger() {}
+    Logger(Logger const &) = delete;
+    void operator=(Logger const &) = delete;
 
-    shared_ptr<Logger> static getInstance() {
-        if (!logInstancePtr) {
-            logInstancePtr = make_shared<Logger>(Logger());
-        }
-        return logInstancePtr;
+    static Logger &getInstance() {
+        static Logger logger;
+        return logger;
     }
 
     void setLogLevel(LoggerLevel level) { logLevel = level; }
@@ -84,6 +84,6 @@ public:
     }
 };
 
-shared_ptr<Logger> loggerInstance();
+Logger &loggerInstance();
 
 #endif // LOGGER_H

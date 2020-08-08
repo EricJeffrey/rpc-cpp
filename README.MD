@@ -96,9 +96,12 @@ RPC服务端使用传统的`bind+listen+accept`方式等待客户端的请求。
      - writeReq
      - parse&serialize
 2. RPCClient
-   - init - `connect`
-   - callProcedure - request
-   - parse&serialize
+   - data
+     - requestQueue, {reqID: callback}, sd
+   - method
+     - connect
+     - callProcedure
+     - parse&serialize
 3. util
    - parseJson
    - sirializeObject

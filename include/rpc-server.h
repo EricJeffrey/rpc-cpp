@@ -23,6 +23,7 @@ using std::vector;
 namespace jeff_rpc {
 
 const static ssize_t HEADER_SZ = 8;
+typedef function<json(json)> ProcType;
 
 struct RawRequest;
 class RPCServer;
@@ -41,29 +42,30 @@ struct jeff_rpc::RawRequest {
 };
 
 class jeff_rpc::RPCServer {
-    typedef function<json(json)> ProcType;
-
 private:
     unordered_map<string, ProcType> registeredProcMap;
-    static shared_ptr<RPCServer> rpcServerInstance;
 
     bool registered(const string procName);
     RawRequest readRequest(int sd);
     int sendResponse(int sd, int reqID, const string &respStr);
     json callProcedure(const string procName, json args);
     int serveClient(int sd);
+
     RPCServer() {}
 
 public:
-    static shared_ptr<RPCServer> getInstance() {
-        if (!rpcServerInstance)
-            rpcServerInstance = make_shared<RPCServer>(RPCServer());
-        return rpcServerInstance;
-    }
+    RPCServer(RPCServer const &) = delete;
+    void operator=(RPCServer const &) = delete;
     ~RPCServer() {}
 
     RegisterRet registerProc(const string procName, ProcType proc);
+    // thread will be terminated on exiting
     int startServer(int);
+
+    static RPCServer &getInstance() {
+        static RPCServer server;
+        return server;
+    }
 };
 
 #endif // RPC_SERVER_H

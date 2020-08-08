@@ -12,7 +12,6 @@ string curTime() {
     return buf;
 }
 
-shared_ptr<Logger> loggerInstance() { return Logger::getInstance(); }
-shared_ptr<Logger> Logger::logInstancePtr = nullptr;
+Logger &loggerInstance() { return Logger::getInstance(); }
 
 #endif // LOGGER_CPP

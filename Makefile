@@ -3,20 +3,20 @@ ODIR = build
 SDIR = ./
 FLAGS = -Iinclude -Ilib -g
 
-_OBJS = main.o rpc-server.o logger.o utils.o
+_OBJS = main.o rpc-server.o logger.o utils.o rpc-client.o
 OBJS = $(patsubst %,$(ODIR)/%,$(_OBJS))
 OUT = build/main.out
 
 TESTSRCDIR = test
 TESTODIR = test
-_TESTOBJS = rpc-server.o logger.o utils.o
+_TESTOBJS = rpc-server.o logger.o utils.o rpc-client.o
 TESTOBJS = $(TESTODIR)/test.o $(patsubst %,$(ODIR)/%, $(_TESTOBJS))
 TESTOUT = $(TESTODIR)/test.out
 
-.PHONY : clean, server, client, test
+.PHONY : clean, tester, client, test
 
 
-server: $(OUT)
+tester: $(OUT)
 $(OUT): $(OBJS) 
 	$(CC) -g -lpthread -o $(OUT) $(OBJS)
 $(ODIR)/%.o: $(SDIR)/%.cpp
@@ -26,7 +26,7 @@ $(ODIR)/%.o: $(SDIR)/%.cpp
 test: $(TESTOUT)
 
 $(TESTOUT): $(TESTOBJS)
-	$(CC) -g -lpthread -o $@ $<
+	$(CC) -g -lpthread -o $@ $(TESTOBJS)
 $(TESTODIR)/%.o: $(TESTSRCDIR)/%.cpp
 	$(CC) -c $(FLAGS) -o $@ $<
 $(ODIR)/%.o: $(SDIR)/%.cpp

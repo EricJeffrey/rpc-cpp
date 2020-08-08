@@ -29,6 +29,13 @@ int readn(int sd, char *buf, ssize_t numToRead);
 
 // write numToRead bytes to sd from buf
 // throw error when write return -1
-int writen(int sd, char *buf, ssize_t numToWrite);
+int writen(int sd, const char *buf, ssize_t numToWrite);
+
+// convert int to 4 byte str, bigend
+string int2str(int x);
+// convert 4 byte str to int, bigend
+int str2int(const string &str);
+// convert 4 byte str to int, bigend
+int str2int(const char *str);
 
 #endif // UTILS_H
