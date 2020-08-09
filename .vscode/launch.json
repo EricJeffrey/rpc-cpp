@@ -5,10 +5,10 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "debug-main",
+            "name": "debug-client",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/build/main.out",
+            "program": "${workspaceFolder}/build/client.out",
             "args": [],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
@@ -22,7 +22,28 @@
                     "ignoreFailures": true
                 }
             ],
-            "preLaunchTask": "build",
+            "preLaunchTask": "build-client",
+            "miDebuggerPath": "/usr/bin/gdb"
+        },
+        {
+            "name": "debug-main",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/server.out",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "为 gdb 启用整齐打印",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build-server",
             "miDebuggerPath": "/usr/bin/gdb"
         }
     ]

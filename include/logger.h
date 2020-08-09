@@ -16,7 +16,7 @@ using std::make_shared;
 using std::shared_ptr;
 using std::string;
 
-string curTime();
+string curTime(); 
 
 #define CUR_TIME (curTime())
 
@@ -28,7 +28,7 @@ enum LoggerLevel {
     WARN_DEBUG_INFO = 3,
     ERROR_WARN_DEBUG_INFO = 4
 };
-
+// todo redesign logger or use a lib
 class Logger {
 private:
     LoggerLevel logLevel;

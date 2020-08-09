@@ -2,12 +2,14 @@
 #define CLIENT_H
 
 #include "json.hpp"
+#include "logger.h"
 #include <queue>
 #include <unordered_map>
 #include <string>
 #include <functional>
 #include <memory>
 #include <mutex>
+#include <unistd.h>
 
 using nlohmann::json;
 using std::function;
@@ -36,7 +38,7 @@ class RPCClient;
 struct jeff_rpc::Response {
     int reqID, bodyLen;
     json retVal;
-    Response(int r, int blen, const json &ret) : reqID(r), bodyLen(blen), retVal(ret) {}
+    Response(int r, int blen, const json& ret) : reqID(r), bodyLen(blen), retVal(ret) {}
     string toString();
 };
 
@@ -45,7 +47,9 @@ struct jeff_rpc::ClientRequest {
     string name;
     json para;
 
-    ClientRequest(int rid, const string &n, const json &p) : reqID(rid), name(n), para(p) {}
+    ClientRequest(int rid, const string &n, const json p) { reqID = rid, name = n, para = p; }
+
+    ~ClientRequest() { loggerInstance().debug({"client request - deContrusting"}); }
     string toRequestString() const;
 };
 
@@ -61,7 +65,8 @@ private:
 
     bool reqQueueEmpty();
     int pushRequest(const ClientRequest &req);
-    ClientRequest popRequest();
+    const ClientRequest& topRequest();
+    int popRequest();
 
     int startJob();
     int connect(const string &host, int port);
@@ -77,7 +82,13 @@ public:
     RPCClient(RPCClient const &) = delete;
     void operator=(RPCClient const &) = delete;
 
-    void closeConn() { close(sd); }
+    void closeConn() {
+        try {
+            close(sd);
+        } catch (const std::exception &e) {
+            loggerInstance().error({"close failed"});
+        }
+    }
     // return false on failure
     bool startClient(const string &host, int port);
     // Call procedure of [name], callback [onReturn] on success, [onError] on network failure

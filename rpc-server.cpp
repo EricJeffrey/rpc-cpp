@@ -92,7 +92,8 @@ RawRequest RPCServer::readRequest(int sd) {
         readn(sd, headerBuf, HEADER_SZ);
         size_t reqID = (size_t)str2int(headerBuf);
         ssize_t bodyLen = str2int(headerBuf + 4);
-        loggerInstance().debug({"reading request body"});
+        loggerInstance().debug({"header - reqID,bodyLen:", to_string(reqID), to_string(bodyLen),
+                                "reading request body"});
         unique_ptr<char[]> bodyBufPtr(new char[bodyLen + 1]);
         readn(sd, bodyBufPtr.get(), bodyLen);
         RawRequest req(reqID, bodyLen, string(bodyBufPtr.get(), bodyLen));
@@ -110,15 +111,8 @@ int RPCServer::sendResponse(int sd, int reqID, const string &respStr) {
     unique_ptr<char[]> respBufferPtr(new char[HEADER_SZ + bodyLen]);
     const string reqStr = int2str(reqID);
     const string bodyLenStr = int2str(bodyLen);
-    for (size_t i = 0; i < 4; i++) {
-        respBufferPtr[i] = reqStr[i];
-        respBufferPtr[i + 4] = bodyLenStr[i];
-    }
-
-    for (uint32_t i = 0, t = 0xff; i < 4; i++, t <<= 8) {
-        respBufferPtr[i] = (reqID & t) >> (8 * i);
-        respBufferPtr[i + 4] = (bodyLen & t) >> (8 * i);
-    }
+    for (size_t i = 0; i < (HEADER_SZ / 2); i++)
+        respBufferPtr[i] = reqStr[i], respBufferPtr[i + (HEADER_SZ / 2)] = bodyLenStr[i];
     copy(respStr.begin(), respStr.end(), respBufferPtr.get() + HEADER_SZ);
     try {
         loggerInstance().debug({"sending response"});
@@ -152,7 +146,8 @@ int RPCServer::serveClient(int sd) {
                 msg = "ERROR";
         }
         ostringstream ss;
-        ss << "{code:" << code << ",msg:" << msg << ",ret:" << resp.dump() << "}";
+        ss << "{\"code\":" << code << ",\"msg\":" << '"' << msg << '"'
+           << ",\"ret\":" << resp.dump() << "}";
         return ss.str();
     };
     RawRequest req;

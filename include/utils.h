@@ -31,11 +31,11 @@ int readn(int sd, char *buf, ssize_t numToRead);
 // throw error when write return -1
 int writen(int sd, const char *buf, ssize_t numToWrite);
 
-// convert int to 4 byte str, bigend
+// convert int to 4 byte str, bigend - 3:00 00 00 03
 string int2str(int x);
-// convert 4 byte str to int, bigend
+// convert 4 byte str to int, bigend - 00 00 00 03: 3
 int str2int(const string &str);
-// convert 4 byte str to int, bigend
+// convert 4 byte str to int, bigend - 00 00 00 03: 3
 int str2int(const char *str);
 
 #endif // UTILS_H

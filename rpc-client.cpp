@@ -22,7 +22,7 @@ namespace jeff_rpc {
 
 string Response::toString() {
     stringstream ss;
-    ss << reqID << ", " << bodyLen << "\n" << retVal;
+    ss << reqID << ", " << bodyLen << "\n--------" << retVal;
     return ss.str();
 }
 
@@ -34,18 +34,22 @@ string ClientRequest::toRequestString() const {
 }
 
 bool RPCClient::reqQueueEmpty() {
-    lock_guard<mutex> guard(reqQueueMutex);
-    const bool res = requestQueue.empty();
-    return res;
+    const lock_guard<mutex> guard(reqQueueMutex);
+    return requestQueue.empty();
 }
-ClientRequest RPCClient::popRequest() {
-    lock_guard<mutex> guard(reqQueueMutex);
-    const ClientRequest req = requestQueue.front();
-    requestQueue.pop();
+const ClientRequest &RPCClient::topRequest() {
+    const lock_guard<mutex> guard(reqQueueMutex);
+    const ClientRequest &req = requestQueue.front();
     return req;
 }
+int RPCClient::popRequest() {
+    const lock_guard<mutex> guard(reqQueueMutex);
+    requestQueue.pop();
+    return 0;
+}
+
 int RPCClient::pushRequest(const ClientRequest &req) {
-    lock_guard<mutex> guard(reqQueueMutex);
+    const lock_guard<mutex> guard(reqQueueMutex);
     requestQueue.push(req);
     return 0;
 }
@@ -63,16 +67,21 @@ Response RPCClient::readResponse() {
     const ssize_t HEADER_SZ = 8;
     char headerBuf[HEADER_SZ] = {};
     try {
+        loggerInstance().debug({"reading header"});
         readn(sd, headerBuf, HEADER_SZ);
         ReqID reqId = str2int(headerBuf), bodyLen = str2int(headerBuf + 4);
-        shared_ptr<char[]> bodyBufPtr = make_shared<char[]>(bodyLen + 1);
-        readn(sd, bodyBufPtr.get(), bodyLen);
-        return Response(reqId, bodyLen, json::parse(string(bodyBufPtr.get(), bodyLen)));
+        loggerInstance().debug({"header reqID, bodyLen: ", to_string(reqId), to_string(bodyLen)});
+        char *bodyBufPtr = new char[bodyLen + 1];
+        readn(sd, bodyBufPtr, bodyLen);
+        loggerInstance().debug({"response read, body: ", bodyBufPtr});
+        Response res = Response(reqId, bodyLen, json::parse(string(bodyBufPtr, bodyLen)));
+        delete[] bodyBufPtr;
+        return res;
     } catch (const SocketError &e) {
         loggerInstance().error({"socket error, ", e.what()});
         throw;
-    } catch (const std::exception &e) {
-        loggerInstance().error({"readn failed", e.what()});
+    } catch (...) {
+        loggerInstance().error({"read response failed"});
         throw;
     }
     // won't reach
@@ -86,7 +95,7 @@ int RPCClient::startJob() {
             loggerInstance().debug({"request not empty, poping request"});
             ReqID tempReqID = -1;
             try {
-                const ClientRequest req = popRequest();
+                const ClientRequest &req = topRequest();
                 tempReqID = req.reqID;
                 loggerInstance().debug({"request got:", req.toRequestString()});
                 writeRequest(req);
@@ -95,6 +104,8 @@ int RPCClient::startJob() {
                 loggerInstance().debug({"response got, resp: ", resp.toString()});
                 loggerInstance().debug({"invoke callback"});
                 req2callback[resp.reqID].first(resp.retVal);
+                req2callback.erase(resp.reqID);
+                popRequest();
             } catch (const SocketError &e) {
                 loggerInstance().error({"socket error, closing"});
                 if (tempReqID != -1 && req2callback[tempReqID].second != nullptr)
@@ -104,9 +115,11 @@ int RPCClient::startJob() {
                 return -1;
             } catch (const std::exception &e) {
                 loggerInstance().error({"error when call remote proc", e.what()});
-                if (tempReqID != -1 && req2callback[tempReqID].second != nullptr)
+                if (tempReqID != -1 && req2callback[tempReqID].second != nullptr) {
                     req2callback[tempReqID].second(
                         "{\"msg\": \"error on read, write or parse\"}"_json);
+                    req2callback.erase(tempReqID);
+                }
             }
         }
         usleep(uSecToSleep);
@@ -137,7 +150,11 @@ int RPCClient::connect(const string &host, int port) {
     // connect
     loggerInstance().debug({"connecting to server"});
     sockaddr_in addr;
-    addr.sin_family = AF_INET, addr.sin_port = htonl(port), inet_aton(host.c_str(), &addr.sin_addr);
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(port);
+    inet_aton(host.c_str(), &addr.sin_addr);
+    loggerInstance().debug({"converted addr, raw port:", to_string(port), "converted port: ",
+                            to_string(addr.sin_port), ", addr: ", inet_ntoa(addr.sin_addr)});
     ret = ::connect(sd, (sockaddr *)&addr, sizeof(addr));
     if (ret == -1) {
         loggerInstance().error({"connect to host failed", strerror(errno)});

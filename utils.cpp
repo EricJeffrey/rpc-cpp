@@ -4,7 +4,7 @@
 #include "utils.h"
 
 json parse2json(string s) {
-    loggerInstance().debug({"parsing s:|", s, "|to json: "});
+    loggerInstance().debug({"parsing s:|", s, "|to json"});
     return json::parse(s);
 }
 string serialize2str(json j) {
@@ -52,7 +52,8 @@ int readn(int sd, char *buf, ssize_t numToRead) {
 string int2str(int x) {
     const uint32_t byteNum = 4;
     string res;
-    for (uint32_t t = 0xff, i = 0; i < byteNum; i++, t <<= 8)
+    uint32_t t = 0xff000000;
+    for (int i = byteNum - 1; i >= 0; i--, t >>= 8)
         res.push_back((x & t) >> (8 * i));
     return res;
 }

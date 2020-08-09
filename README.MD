@@ -111,3 +111,7 @@ RPC服务端使用传统的`bind+listen+accept`方式等待客户端的请求。
 ## 实现
 
 使用[nlohmann/json](https://github.com/nlohmann/json)作为参数。
+
+## 问题
+
+- `shared_ptr`不直接支持管理动态数组，需要手动提供删除器。

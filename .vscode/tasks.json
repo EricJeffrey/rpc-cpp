@@ -2,7 +2,7 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "build",
+            "label": "build-server",
             "type": "shell",
             "command": "/usr/bin/make",
             "args": [
@@ -12,6 +12,20 @@
                 "kind": "build",
                 "isDefault": true
             },
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+        {
+            "label": "build-client",
+            "type": "shell",
+            "command": "/usr/bin/make",
+            "args": [
+                "client"
+            ],
             "options": {
                 "cwd": "${workspaceFolder}"
             },
